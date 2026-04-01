@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sip & Slerp | Home Café · Leicester</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --brown-deep: #2C1A0E;
+    --brown-rich: #4A2C17;
+    --brown-warm: #7B4A2D;
+    --brown-mid: #A0622A;
+    --caramel: #C8863C;
+    --gold: #D4A853;
+    --cream: #F5EDD8;
+    --cream-light: #FAF5EC;
+    --foam: #FDF9F0;
+  }
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--foam);
+    color: var(--brown-deep);
+    font-family: 'Cormorant Garamond', serif;
+    overflow-x: hidden;
+  }
+
+  /* Grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px;
+  }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--cream); }
+  ::-webkit-scrollbar-thumb { background: var(--brown-warm); border-radius: 3px; }
+
+  /* ── PRELOADER ── */
+  #preloader {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: var(--brown-deep);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.8s ease, visibility 0.8s ease;
+  }
+  #preloader.hidden { opacity: 0; visibility: hidden; }
+
+  .pre-glow {
+    position: absolute;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(200,134,60,0.2) 0%, transparent 70%);
+    animation: pulse 4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+
+  .pre-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(212,168,83,0.1);
+    animation: spin 40s linear infinite;
+  }
+  .pre-ring:nth-child(2) { width:600px;height:600px; }
+  .pre-ring:nth-child(3) { width:400px;height:400px; animation-direction:reverse; animation-duration:25s; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .pre-content { position: relative; z-index: 2; display:flex; flex-direction:column; align-items:center; gap:28px; }
+
+  .pre-badge {
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    background: var(--brown-warm);
+    border: 3px solid var(--caramel);
+    display: flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 60px rgba(200,134,60,0.35), 0 0 120px rgba(200,134,60,0.1);
+    animation: badgeIn 0.9s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    opacity: 0; transform: scale(0.5);
+  }
+  @keyframes badgeIn { to { opacity:1; transform:scale(1); } }
+
+  .pre-badge span {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    color: var(--cream);
+    font-size: 18px;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .pre-tagline {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--caramel);
+    font-size: 16px;
+    letter-spacing: 0.3em;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.5s ease forwards;
+  }
+
+  .pre-bar-wrap {
+    width: 200px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.7s ease forwards;
+  }
+  .pre-bar-track {
+    width: 100%; height: 1px;
+    background: rgba(245,237,216,0.12);
+    position: relative;
+  }
+  .pre-bar-fill {
+    position: absolute; top:0; left:0; height:100%;
+    background: linear-gradient(to right, var(--caramel), var(--gold));
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+  .pre-bar-glow {
+    position: absolute; top:0; height:100%; width:32px;
+    background: linear-gradient(to right, transparent, rgba(212,168,83,0.7), transparent);
+    transition: left 0.1s linear;
+  }
+  .pre-num {
+    margin-top: 12px;
+    font-family: 'Playfair Display', serif;
+    color: rgba(245,237,216,0.3);
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    text-align: center;
+  }
+
+  /* Wipe reveal */
+  .pre-wipe {
+    position: absolute;
+    inset: 0;
+    background: var(--foam);
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: transform 0.7s cubic-bezier(0.76,0,0.24,1);
+  }
+  .pre-wipe.active { transform: scaleY(1); }
+
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ── PARALLAX LAYERS ── */
+  .parallax-bg {
+    position: absolute;
+    inset: -20%;
+    will-change: transform;
+    background: linear-gradient(160deg, #2C1A0E 0%, #4A2C17 45%, #7B4A2D 100%);
+  }
+  .parallax-glow {
+    position: absolute;
+    width: 700px; height: 700px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(200,134,60,0.22) 0%, transparent 65%);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    will-change: transform;
+    animation: pulse 5s ease-in-out infinite;
+  }
+  .parallax-orbit1 {
+    position: absolute;
+    width: 800px; height: 800px;
+    border-radius: 50%;
+    border: 1px solid rgba(212,168,83,0.08);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    will-change: transform;
+    animation: spin 60s linear infinite;
+  }
+  .parallax-orbit2 {
+    position: absolute;
+    width: 550px; height: 550px;
+    border-radius: 50%;
+    border: 1px solid rgba(212,168,83,0.12);
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    will-change: transform;
+    animation: spin 35s linear infinite reverse;
+  }
+  .parallax-content {
+    will-change: transform, opacity;
+  }
+
+  /* Section parallax dividers */
+  .parallax-divider {
+    position: relative;
+    overflow: hidden;
+    height: 180px;
+  }
+  .parallax-divider-inner {
+    position: absolute;
+    inset: -40px 0;
+    will-change: transform;
+  }
+
+  /* About section bg parallax */
+  #about { position: relative; overflow: hidden; }
+  .about-bg-layer {
+    position: absolute;
+    inset: -15%;
+    background: var(--brown-deep);
+    will-change: transform;
+    z-index: 0;
+  }
+  .about-inner { position: relative; z-index: 1; }
+
+  /* Order section bg parallax */
+  #order { position: relative; overflow: hidden; }
+  .order-bg-layer {
+    position: absolute;
+    inset: -15%;
+    background: var(--cream);
+    will-change: transform;
+    z-index: 0;
+  }
+  .order-inner { position: relative; z-index: 1; }
+
+  /* Floating orbs in sections */
+  .float-orb {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: transform;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 500;
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.4s, border-color 0.4s, backdrop-filter 0.4s;
+    opacity: 0;
+    animation: fadeDown 0.7s 2.6s ease forwards;
+  }
+  @keyframes fadeDown { to { opacity:1; } }
+
+  nav.scrolled {
+    background: rgba(253,249,240,0.92);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(200,134,60,0.18);
+  }
+
+  .nav-logo {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 20px;
+    color: var(--brown-deep);
+    text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+  nav.dark-bg .nav-logo { color: var(--cream); }
+
+  .nav-links { display: flex; gap: 36px; }
+  .nav-links a {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    color: var(--brown-warm);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--caramel); }
+  nav.dark-bg .nav-links a { color: rgba(245,237,216,0.7); }
+  nav.dark-bg .nav-links a:hover { color: var(--caramel); }
+
+  /* Mobile hamburger */
+  .hamburger {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .hamburger span {
+    display: block;
+    width: 24px; height: 1px;
+    background: var(--brown-deep);
+    transition: all 0.3s;
+  }
+  nav.dark-bg .hamburger span { background: var(--cream); }
+
+  .mobile-menu {
+    position: fixed;
+    inset: 0;
+    z-index: 490;
+    background: var(--brown-deep);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    clip-path: circle(0% at calc(100% - 50px) 40px);
+    transition: clip-path 0.6s cubic-bezier(0.76,0,0.24,1);
+  }
+  .mobile-menu.open { clip-path: circle(150% at calc(100% - 50px) 40px); }
+  .mobile-menu a {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    color: var(--cream);
+    text-decoration: none;
+    opacity: 0;
+    transform: translateX(-20px);
+    transition: opacity 0.4s, transform 0.4s;
+  }
+  .mobile-menu.open a { opacity: 1; transform: translateX(0); }
+  .mobile-menu.open a:nth-child(1) { transition-delay: 0.15s; }
+  .mobile-menu.open a:nth-child(2) { transition-delay: 0.2s; }
+  .mobile-menu.open a:nth-child(3) { transition-delay: 0.25s; }
+  .mobile-menu.open a:nth-child(4) { transition-delay: 0.3s; }
+  .mobile-menu p {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--caramel);
+    font-size: 16px;
+    letter-spacing: 0.2em;
+    margin-top: 16px;
+    opacity: 0;
+    transition: opacity 0.4s 0.4s;
+  }
+  .mobile-menu.open p { opacity: 1; }
+
+  @media (max-width: 768px) {
+    nav { padding: 18px 24px; }
+    .nav-links { display: none; }
+    .hamburger { display: flex; }
+  }
+
+  /* ── HERO ── */
+  #home {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-glow, .hero-orbit { display: none; }
+
+  .hero-particles { position:absolute;inset:0;pointer-events:none; }
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(212,168,83,0.5);
+    animation: floatUp var(--dur) ease-in-out infinite;
+    animation-delay: var(--delay);
+  }
+  @keyframes floatUp {
+    0%,100% { transform: translateY(0); opacity:0; }
+    40% { opacity:0.8; }
+    100% { transform: translateY(-80px); opacity:0; }
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hero-badge {
+    width: 170px; height: 170px;
+    border-radius: 50%;
+    background: var(--brown-warm);
+    border: 4px solid var(--caramel);
+    display: flex; align-items:center; justify-content:center;
+    box-shadow: 0 0 70px rgba(200,134,60,0.4), 0 0 140px rgba(200,134,60,0.12);
+    margin-bottom: 36px;
+    opacity: 0;
+    animation: badgeIn 0.9s 2.2s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+  .hero-badge span {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    color: var(--cream);
+    font-size: 24px;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .hero-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--caramel);
+    font-size: 17px;
+    letter-spacing: 0.3em;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.7s 2.5s ease forwards;
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    color: var(--cream);
+    font-size: clamp(52px, 10vw, 108px);
+    line-height: 0.9;
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fadeUp 0.8s 2.65s ease forwards;
+  }
+  .hero-title em { color: var(--gold); font-style: italic; }
+
+  .hero-desc {
+    font-family: 'Cormorant Garamond', serif;
+    color: rgba(245,237,216,0.65);
+    font-size: 20px;
+    line-height: 1.6;
+    margin-bottom: 44px;
+    opacity: 0;
+    animation: fadeUp 0.7s 2.8s ease forwards;
+  }
+  .hero-desc span { color: var(--caramel); }
+
+  .hero-btns {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeUp 0.7s 3s ease forwards;
+  }
+
+  .btn-primary {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.14em;
+    color: var(--brown-deep);
+    background: linear-gradient(135deg, var(--caramel), var(--gold));
+    padding: 15px 38px;
+    border-radius: 2px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 8px 32px rgba(200,134,60,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: inline-block;
+  }
+  .btn-primary:hover { transform:translateY(-2px); box-shadow:0 14px 40px rgba(200,134,60,0.5); }
+
+  .btn-outline {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.14em;
+    color: var(--cream);
+    background: transparent;
+    padding: 15px 38px;
+    border-radius: 2px;
+    text-decoration: none;
+    border: 1px solid rgba(245,237,216,0.28);
+    transition: border-color 0.2s, color 0.2s;
+    display: inline-block;
+  }
+  .btn-outline:hover { border-color: var(--caramel); color: var(--caramel); }
+
+  .hero-scroll {
+    margin-top: 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0;
+    animation: fadeUp 0.7s 3.3s ease forwards;
+  }
+  .scroll-line {
+    width: 1px; height: 48px;
+    background: linear-gradient(to bottom, transparent, rgba(212,168,83,0.5));
+    animation: scrollPulse 2s ease-in-out infinite;
+  }
+  @keyframes scrollPulse { 0%,100%{transform:scaleY(0);transform-origin:top} 50%{transform:scaleY(1);transform-origin:top} }
+  .scroll-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: rgba(212,168,83,0.45);
+    font-size: 12px;
+    letter-spacing: 0.35em;
+  }
+
+  /* ── REVEAL ANIMATIONS ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.75s ease, transform 0.75s ease;
+  }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .reveal-left {
+    opacity: 0;
+    transform: translateX(-40px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .reveal-left.visible { opacity:1; transform:translateX(0); }
+  .reveal-right {
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .reveal-right.visible { opacity:1; transform:translateX(0); }
+
+  .stagger-1 { transition-delay: 0.1s; }
+  .stagger-2 { transition-delay: 0.2s; }
+  .stagger-3 { transition-delay: 0.3s; }
+  .stagger-4 { transition-delay: 0.4s; }
+  .stagger-5 { transition-delay: 0.5s; }
+
+  /* ── SECTION SHARED ── */
+  .section-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 16px;
+    letter-spacing: 0.3em;
+    color: var(--caramel);
+    margin-bottom: 14px;
+    display: block;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(42px, 8vw, 80px);
+    line-height: 0.9;
+  }
+  .section-title em { font-style: italic; color: var(--gold); }
+  .divider {
+    width: 96px; height: 1px;
+    background: linear-gradient(to right, transparent, var(--caramel), transparent);
+    margin: 24px auto 0;
+  }
+
+  /* ── MENU SECTION ── */
+  #menu {
+    padding: 120px 24px;
+    background: var(--foam);
+  }
+  .menu-inner { max-width: 860px; margin: 0 auto; }
+  .menu-header { text-align:center; margin-bottom: 64px; }
+  .menu-header .section-title { color: var(--brown-deep); }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    background: rgba(123,74,45,0.08);
+    border-radius: 4px;
+    padding: 4px;
+    width: fit-content;
+    margin: 0 auto 56px;
+  }
+  .tab-btn {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    padding: 10px 32px;
+    border-radius: 2px;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: var(--brown-warm);
+    transition: all 0.3s;
+    text-transform: capitalize;
+  }
+  .tab-btn.active {
+    background: var(--brown-deep);
+    color: var(--cream);
+  }
+
+  .menu-panel { display: none; }
+  .menu-panel.active { display: block; }
+
+  .menu-card {
+    border: 1px solid rgba(123,74,45,0.14);
+    border-radius: 4px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .menu-item {
+    padding: 28px 32px;
+    border-bottom: 1px solid rgba(123,74,45,0.1);
+    position: relative;
+    transition: background 0.3s;
+    cursor: default;
+  }
+  .menu-item:last-child { border-bottom: none; }
+  .menu-item:hover { background: rgba(200,134,60,0.04); }
+  .menu-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--caramel);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 0.2s;
+  }
+  .menu-item:hover::before { transform: scaleY(1); }
+
+  .item-top { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:8px; }
+  .item-name-wrap { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .item-name {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--brown-deep);
+  }
+  .item-tag {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    padding: 2px 10px;
+    background: rgba(200,134,60,0.12);
+    color: var(--caramel);
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+  }
+  .item-price {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--caramel);
+    flex-shrink: 0;
+  }
+  .item-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 17px;
+    color: var(--brown-warm);
+    line-height: 1.55;
+    opacity: 0.82;
+  }
+
+  .menu-note {
+    text-align: center;
+    margin-top: 28px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--brown-mid);
+    font-size: 16px;
+    opacity: 0.7;
+  }
+
+  /* ── ABOUT SECTION ── */
+  #about {
+    padding: 120px 24px;
+    background: var(--brown-deep);
+    overflow: hidden;
+  }
+  .about-inner { max-width: 1000px; margin: 0 auto; }
+  .about-header { text-align:center; margin-bottom: 80px; }
+  .about-header .section-title { color: var(--cream); }
+
+  .about-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+    margin-bottom: 80px;
+  }
+  @media (max-width: 768px) { .about-grid { grid-template-columns:1fr; gap:40px; } }
+
+  .about-text p {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 20px;
+    color: rgba(245,237,216,0.72);
+    line-height: 1.85;
+    margin-bottom: 22px;
+  }
+  .about-text em {
+    font-style: italic;
+    color: var(--caramel);
+    font-size: 19px;
+  }
+
+  .about-card {
+    padding: 40px;
+    background: linear-gradient(135deg, #4A2C17, #7B4A2D);
+    border: 1px solid rgba(200,134,60,0.28);
+    border-radius: 4px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .about-card::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,168,83,0.2), transparent);
+    border: 1px solid rgba(212,168,83,0.25);
+  }
+  .card-badge {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: var(--brown-warm);
+    border: 3px solid var(--caramel);
+    display: flex; align-items:center; justify-content:center;
+    margin: 0 auto 16px;
+  }
+  .card-badge span {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    color: var(--cream);
+    font-size: 15px;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .card-loc {
+    font-family: 'Cormorant Garamond', serif;
+    letter-spacing: 0.2em;
+    font-size: 13px;
+    color: var(--caramel);
+    margin-bottom: 20px;
+  }
+  .card-divider {
+    height: 1px;
+    background: rgba(200,134,60,0.25);
+    margin: 12px 0;
+  }
+  .card-item {
+    font-family: 'Playfair Display', serif;
+    color: var(--cream);
+    font-size: 17px;
+    margin: 6px 0;
+  }
+  .card-pickup {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--caramel);
+    font-size: 15px;
+    margin-top: 14px;
+  }
+
+  .values-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  @media (min-width: 640px) { .values-grid { grid-template-columns: repeat(4,1fr); } }
+
+  .value-card {
+    padding: 28px 20px;
+    text-align: center;
+    border: 1px solid rgba(200,134,60,0.14);
+    border-radius: 2px;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .value-card:hover { border-color: rgba(200,134,60,0.35); background: rgba(200,134,60,0.05); }
+  .value-icon { font-size: 36px; margin-bottom: 14px; }
+  .value-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    color: var(--cream);
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  .value-desc {
+    font-family: 'Cormorant Garamond', serif;
+    color: rgba(245,237,216,0.45);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── ORDER SECTION ── */
+  #order {
+    padding: 120px 24px;
+    background: var(--cream);
+  }
+  .order-inner { max-width: 860px; margin: 0 auto; }
+  .order-header { text-align:center; margin-bottom: 72px; }
+  .order-header .section-title { color: var(--brown-deep); }
+
+  .steps { display: flex; flex-direction: column; gap: 24px; position: relative; }
+  .steps::before {
+    content:'';
+    position:absolute;
+    left:31px; top:16px; bottom:16px;
+    width:1px;
+    background: linear-gradient(to bottom, var(--caramel), rgba(200,134,60,0.08));
+  }
+  @media (max-width:480px) { .steps::before { display:none; } }
+
+  .step { display:flex; gap:24px; align-items:flex-start; }
+  .step-num {
+    flex-shrink: 0;
+    width: 64px; height: 64px;
+    border-radius: 2px;
+    display: flex; align-items:center; justify-content:center;
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    position: relative; z-index:1;
+    transition: background 0.3s;
+  }
+  .step-num.dark { background: var(--brown-deep); color: var(--gold); border: 2px solid var(--brown-deep); }
+  .step-num.light { background: #fff; color: var(--brown-mid); border: 2px solid rgba(123,74,45,0.18); }
+
+  .step-body {
+    flex:1;
+    padding: 24px 28px;
+    background: #fff;
+    border: 1px solid rgba(123,74,45,0.1);
+    border-radius: 2px;
+    transition: box-shadow 0.3s;
+  }
+  .step-body:hover { box-shadow: 0 8px 32px rgba(123,74,45,0.08); }
+  .step-head { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .step-icon { font-size: 24px; }
+  .step-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--brown-deep);
+  }
+  .step-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px;
+    color: var(--brown-warm);
+    line-height: 1.6;
+    opacity: 0.85;
+  }
+
+  .order-cta {
+    margin-top: 60px;
+    padding: 48px 40px;
+    background: linear-gradient(135deg, var(--brown-deep), #4A2C17);
+    border: 1px solid rgba(200,134,60,0.2);
+    border-radius: 4px;
+    text-align: center;
+  }
+  .cta-sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--caramel);
+    font-size: 16px;
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+    display:block;
+  }
+  .cta-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 32px;
+    color: var(--cream);
+    margin-bottom: 28px;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background: #1A0F08;
+    border-top: 1px solid rgba(200,134,60,0.12);
+    padding: 64px 24px;
+  }
+  .footer-inner {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .footer-top {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 40px;
+    margin-bottom: 48px;
+  }
+  .footer-brand-name {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: 26px;
+    color: var(--cream);
+    margin-bottom: 6px;
+  }
+  .footer-brand-tag {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--caramel);
+    font-size: 15px;
+    letter-spacing: 0.18em;
+  }
+  .footer-info p {
+    font-family: 'Cormorant Garamond', serif;
+    color: rgba(245,237,216,0.45);
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+  .footer-social p {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: rgba(245,237,216,0.35);
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    margin-bottom: 10px;
+  }
+  .footer-social a {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--caramel);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer-social a:hover { color: var(--gold); }
+  .footer-bottom {
+    border-top: 1px solid rgba(200,134,60,0.08);
+    padding-top: 28px;
+    text-align: center;
+  }
+  .footer-bottom p {
+    font-family: 'Cormorant Garamond', serif;
+    color: rgba(245,237,216,0.2);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width:600px) {
+    .hero-badge { width:130px;height:130px; }
+    .hero-badge span { font-size:18px; }
+    .step { flex-direction:column; }
+    .step-num { width:48px;height:48px;font-size:11px; }
+    .order-cta { padding:32px 20px; }
+    .footer-top { flex-direction:column; gap:28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PRELOADER -->
+<div id="preloader">
+  <div class="pre-glow"></div>
+  <div class="pre-ring"></div>
+  <div class="pre-ring"></div>
+  <div class="pre-content">
+    <div class="pre-badge"><span>SIP &<br>SLERP</span></div>
+    <div class="pre-tagline">Ready, set, slerpppp!</div>
+    <div class="pre-bar-wrap">
+      <div class="pre-bar-track">
+        <div class="pre-bar-fill" id="barFill"></div>
+        <div class="pre-bar-glow" id="barGlow"></div>
+      </div>
+      <div class="pre-num" id="barNum">0</div>
+    </div>
+  </div>
+  <div class="pre-wipe" id="preWipe"></div>
+</div>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#home" onclick="closeMobile()">Home</a>
+  <a href="#menu" onclick="closeMobile()">Menu</a>
+  <a href="#about" onclick="closeMobile()">About</a>
+  <a href="#order" onclick="closeMobile()">Order</a>
+  <p>Leicester, UK · LE5</p>
+</div>
+
+<!-- NAV -->
+<nav id="mainNav">
+  <a href="#home" class="nav-logo">SIP & SLERP</a>
+  <div class="nav-links">
+    <a href="#home">Home</a>
+    <a href="#menu">Menu</a>
+    <a href="#about">About</a>
+    <a href="#order">Order</a>
+  </div>
+  <button class="hamburger" id="hamburger" onclick="toggleMobile()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- HERO -->
+<section id="home">
+  <!-- Parallax background layer (slowest) -->
+  <div class="parallax-bg" id="heroBg"></div>
+  <!-- Parallax mid layers -->
+  <div class="parallax-glow" id="heroGlow"></div>
+  <div class="parallax-orbit1" id="heroOrbit1"></div>
+  <div class="parallax-orbit2" id="heroOrbit2"></div>
+  <!-- Floating particles -->
+  <div class="hero-particles" id="particles"></div>
+  <!-- Hero content fades + rises on scroll -->
+  <div class="hero-content parallax-content" id="heroContent">
+    <div class="hero-badge"><span>SIP &<br>SLERP</span></div>
+    <p class="hero-sub">— Ready, set, slerpppp! —</p>
+    <h1 class="hero-title">Your Favourite<br><em>Home Café</em></h1>
+    <p class="hero-desc">
+      Iced coffees · Noodles · Snacks<br>
+      <span>Curbside pickup · Leicester LE5</span>
+    </p>
+    <div class="hero-btns">
+      <a href="#order" class="btn-primary">ORDER NOW</a>
+      <a href="#menu" class="btn-outline">VIEW MENU</a>
+    </div>
+    <div class="hero-scroll">
+      <div class="scroll-line"></div>
+      <span class="scroll-label">scroll</span>
+    </div>
+  </div>
+</section>
+
+<!-- MENU -->
+<section id="menu">
+  <div class="menu-inner">
+    <div class="menu-header">
+      <span class="section-label reveal">— what we serve —</span>
+      <h2 class="section-title reveal stagger-1">Our Menu</h2>
+      <div class="divider reveal stagger-2"></div>
+    </div>
+
+    <div class="tab-bar reveal stagger-2">
+      <button class="tab-btn active" onclick="switchTab('drinks')">Drinks</button>
+      <button class="tab-btn" onclick="switchTab('snacks')">Snacks</button>
+    </div>
+
+    <!-- DRINKS -->
+    <div class="menu-panel active" id="panel-drinks">
+      <div class="menu-card">
+        <div class="menu-item reveal stagger-1">
+          <div class="item-top">
+            <div class="item-name-wrap">
+              <span class="item-name">Spanish Latte</span>
+              <span class="item-tag">Classic</span>
+            </div>
+            <span class="item-price">£5.00</span>
+          </div>
+          <p class="item-desc">Iced latte made with sweetened milk and espresso</p>
+        </div>
+        <div class="menu-item reveal stagger-2">
+          <div class="item-top">
+            <div class="item-name-wrap">
+              <span class="item-name">Pink Cloud Caramel Latte</span>
+              <span class="item-tag">Fan Fave</span>
+            </div>
+            <span class="item-price">£5.50</span>
+          </div>
+          <p class="item-desc">Iced caramel latte finished with strawberry cold foam</p>
+        </div>
+        <div class="menu-item reveal stagger-3">
+          <div class="item-top">
+            <div class="item-name-wrap">
+              <span class="item-name">Biscoff Cheesecake Latte</span>
+              <span class="item-tag">Indulgent</span>
+            </div>
+            <span class="item-price">£5.50</span>
+          </div>
+          <p class="item-desc">Iced latte infused with Biscoff and finished with cream cheese cold foam</p>
+        </div>
+        <div class="menu-item reveal stagger-4">
+          <div class="item-top">
+            <div class="item-name-wrap">
+              <span class="item-name">Cinnamon Bun Latte</span>
+              <span class="item-tag">Cosy</span>
+            </div>
+            <span class="item-price">£5.50</span>
+          </div>
+          <p class="item-desc">Iced cinnamon latte topped with cream cheese cold foam</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SNACKS -->
+    <div class="menu-panel" id="panel-snacks">
+      <div class="menu-card">
+        <div class="menu-item">
+          <div class="item-top">
+            <div class="item-name-wrap">
+              <span class="item-name">Cheesy Buldak Springrolls</span>
+              <span class="item-tag">Spicy 🌶</span>
+            </div>
+            <span class="item-price">£6.00</span>
+          </div>
+          <p class="item-desc">Pan-fried rice paper spring rolls filled with cheese spicy buldak noodles</p>
+        </div>
+        <div class="menu-item">
+          <div class="item-top">
+            <div class="item-name-wrap">
+              <span class="item-name">Creamy Carbonara</span>
+              <span class="item-tag">Must Try</span>
+            </div>
+            <span class="item-price">£5.50</span>
+          </div>
+          <p class="item-desc">Extra creamy and cheesy buldak carbonara — highly addictive</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="menu-note reveal">Menu may vary · Check our Instagram stories for daily specials</p>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="about-bg-layer" id="aboutBg"></div>
+  <div class="float-orb" id="aboutOrb1" style="width:300px;height:300px;background:radial-gradient(circle,rgba(200,134,60,0.08),transparent);top:10%;right:-80px;"></div>
+  <div class="float-orb" id="aboutOrb2" style="width:200px;height:200px;background:radial-gradient(circle,rgba(212,168,83,0.06),transparent);bottom:15%;left:-60px;"></div>
+  <div class="about-inner">
+    <div class="about-header">
+      <span class="section-label reveal">— our story —</span>
+      <h2 class="section-title reveal stagger-1">Born from a<br><em>Love of Flavour</em></h2>
+    </div>
+
+    <div class="about-grid">
+      <div class="about-text reveal-left">
+        <p>Sip & Slerp started as a dream — a home café serving up drinks you can't stop thinking about and snacks that hit every single time.</p>
+        <p>Based in Leicester LE5, we do curbside pickup only — keeping things personal, fresh, and real. No rush, no fuss, just good food made with love.</p>
+        <p><em>"Ready, set, slerpppp!"</em></p>
+      </div>
+
+      <div class="about-card reveal-right">
+        <div class="card-badge"><span>SIP &<br>SLERP</span></div>
+        <div class="card-loc">LEICESTER · LE5 · UK</div>
+        <div class="card-divider"></div>
+        <div class="card-item">Iced Coffees</div>
+        <div style="color:rgba(245,237,216,0.3);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;">· · ·</div>
+        <div class="card-item">Noodles & Snacks</div>
+        <div class="card-divider"></div>
+        <div class="card-pickup">Curbside Pickup Only 🚗</div>
+      </div>
+    </div>
+
+    <div class="values-grid">
+      <div class="value-card reveal stagger-1">
+        <div class="value-icon">☕</div>
+        <div class="value-title">Crafted with Care</div>
+        <div class="value-desc">Every drink made to order with quality ingredients.</div>
+      </div>
+      <div class="value-card reveal stagger-2">
+        <div class="value-icon">🏡</div>
+        <div class="value-title">Home Café Vibes</div>
+        <div class="value-desc">Warmth of a home kitchen, quality of a specialty café.</div>
+      </div>
+      <div class="value-card reveal stagger-3">
+        <div class="value-icon">🚗</div>
+        <div class="value-title">Curbside Only</div>
+        <div class="value-desc">Fresh to your car door — Leicester LE5.</div>
+      </div>
+      <div class="value-card reveal stagger-4">
+        <div class="value-icon">🍜</div>
+        <div class="value-title">For Everyone</div>
+        <div class="value-desc">Coffee lover or noodle fiend — we've got you.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ORDER -->
+<section id="order">
+  <div class="order-bg-layer" id="orderBg"></div>
+  <div class="float-orb" id="orderOrb1" style="width:250px;height:250px;background:radial-gradient(circle,rgba(200,134,60,0.07),transparent);top:5%;left:-60px;"></div>
+  <div class="float-orb" id="orderOrb2" style="width:180px;height:180px;background:radial-gradient(circle,rgba(212,168,83,0.07),transparent);bottom:10%;right:-40px;"></div>
+  <div class="order-inner">
+    <div class="order-header">
+      <span class="section-label reveal">— how it works —</span>
+      <h2 class="section-title reveal stagger-1">How to Order</h2>
+      <div class="divider reveal stagger-2"></div>
+    </div>
+
+    <div class="steps">
+      <div class="step reveal stagger-1">
+        <div class="step-num dark">01</div>
+        <div class="step-body">
+          <div class="step-head">
+            <span class="step-icon">📋</span>
+            <span class="step-title">Check the Menu</span>
+          </div>
+          <p class="step-desc">Browse our drinks and snacks. Check our Instagram stories daily for available items and opening times.</p>
+        </div>
+      </div>
+      <div class="step reveal stagger-2">
+        <div class="step-num light">02</div>
+        <div class="step-body">
+          <div class="step-head">
+            <span class="step-icon">📩</span>
+            <span class="step-title">DM Us on Instagram</span>
+          </div>
+          <p class="step-desc">Slide into our DMs @sipandslerp with your order, preferred collection day, and collection time.</p>
+        </div>
+      </div>
+      <div class="step reveal stagger-3">
+        <div class="step-num light">03</div>
+        <div class="step-body">
+          <div class="step-head">
+            <span class="step-icon">✨</span>
+            <span class="step-title">Wait for Confirmation</span>
+          </div>
+          <p class="step-desc">We'll confirm your order and slot. Then just show up to Leicester LE5 at your time.</p>
+        </div>
+      </div>
+      <div class="step reveal stagger-4">
+        <div class="step-num light">04</div>
+        <div class="step-body">
+          <div class="step-head">
+            <span class="step-icon">🚗</span>
+            <span class="step-title">Collect & Enjoy</span>
+          </div>
+          <p class="step-desc">Pull up curbside, grab your order fresh and hot (or iced!), and slerp away.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="order-cta reveal">
+      <span class="cta-sub">Opening days & times posted daily</span>
+      <h3 class="cta-title">Follow us on Instagram</h3>
+      <a href="https://www.instagram.com/sipandslerp" target="_blank" rel="noopener noreferrer" class="btn-primary">@SIPANDSLERP</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="footer-brand-name">SIP & SLERP</div>
+        <div class="footer-brand-tag">Ready, set, slerpppp!</div>
+      </div>
+      <div class="footer-info">
+        <p>📍 Leicester, UK · LE5</p>
+        <p>🚗 Curbside Pickup Only</p>
+        <p>☕ Iced Coffees · Noodles · Snacks</p>
+      </div>
+      <div class="footer-social">
+        <p>FIND US ON</p>
+        <a href="https://www.instagram.com/sipandslerp" target="_blank" rel="noopener noreferrer">Instagram →</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2025 Sip & Slerp · Home Café · Leicester</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ── PRELOADER ──
+  let prog = 0;
+  const fill = document.getElementById('barFill');
+  const glow = document.getElementById('barGlow');
+  const num  = document.getElementById('barNum');
+  const wipe = document.getElementById('preWipe');
+  const pre  = document.getElementById('preloader');
+
+  const interval = setInterval(() => {
+    const inc = prog < 60 ? Math.random() * 8 + 2 : Math.random() * 4 + 1;
+    prog = Math.min(prog + inc, 100);
+    fill.style.width = prog + '%';
+    glow.style.left  = Math.max(prog - 4, 0) + '%';
+    num.textContent  = Math.round(prog);
+    if (prog >= 100) {
+      clearInterval(interval);
+      setTimeout(() => {
+        wipe.classList.add('active');
+        setTimeout(() => pre.classList.add('hidden'), 800);
+      }, 300);
+    }
+  }, 80);
+
+  // ── NAV ──
+  const nav = document.getElementById('mainNav');
+  nav.classList.add('dark-bg');
+
+  // ── MOBILE MENU ──
+  let menuOpen = false;
+  function toggleMobile() {
+    menuOpen = !menuOpen;
+    document.getElementById('mobileMenu').classList.toggle('open', menuOpen);
+    const bars = document.querySelectorAll('.hamburger span');
+    if (menuOpen) {
+      bars[0].style.transform = 'translateY(6px) rotate(45deg)';
+      bars[1].style.opacity   = '0';
+      bars[2].style.transform = 'translateY(-6px) rotate(-45deg)';
+    } else {
+      bars.forEach(b => { b.style.transform=''; b.style.opacity=''; });
+    }
+  }
+  function closeMobile() {
+    menuOpen = false;
+    document.getElementById('mobileMenu').classList.remove('open');
+    document.querySelectorAll('.hamburger span').forEach(b => { b.style.transform=''; b.style.opacity=''; });
+  }
+
+  // ── PARTICLES ──
+  const pWrap = document.getElementById('particles');
+  for (let i = 0; i < 10; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 4 + 2;
+    p.style.cssText = `width:${size}px;height:${size}px;left:${10+i*8}%;top:${35+Math.random()*30}%;--dur:${3+Math.random()*2}s;--delay:${i*0.35}s;`;
+    pWrap.appendChild(p);
+  }
+
+  // ── SCROLL REVEALS ──
+  const revealEls = document.querySelectorAll('.reveal, .reveal-left, .reveal-right');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+  revealEls.forEach(el => observer.observe(el));
+
+  // ── MENU TABS ──
+  function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.menu-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+    const panel = document.getElementById('panel-' + tab);
+    panel.classList.add('active');
+    panel.querySelectorAll('.reveal').forEach(el => {
+      el.classList.remove('visible');
+      setTimeout(() => el.classList.add('visible'), 50);
+    });
+  }
+
+  // ── PARALLAX ENGINE ──
+  // Cache DOM refs
+  const heroBg      = document.getElementById('heroBg');
+  const heroGlow    = document.getElementById('heroGlow');
+  const heroOrbit1  = document.getElementById('heroOrbit1');
+  const heroOrbit2  = document.getElementById('heroOrbit2');
+  const heroContent = document.getElementById('heroContent');
+  const aboutBg     = document.getElementById('aboutBg');
+  const aboutOrb1   = document.getElementById('aboutOrb1');
+  const aboutOrb2   = document.getElementById('aboutOrb2');
+  const orderBg     = document.getElementById('orderBg');
+  const orderOrb1   = document.getElementById('orderOrb1');
+  const orderOrb2   = document.getElementById('orderOrb2');
+  const heroSection = document.getElementById('home');
+  const aboutSection = document.getElementById('about');
+  const orderSection = document.getElementById('order');
+
+  // Respect prefers-reduced-motion
+  const noMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let ticking = false;
+
+  function getProgress(el) {
+    const rect = el.getBoundingClientRect();
+    const vh   = window.innerHeight;
+    // 0 = top of element at bottom of viewport, 1 = bottom of element at top
+    return (vh - rect.top) / (vh + rect.height);
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function onScroll() {
+    if (noMotion) return;
+    const scrollY = window.scrollY;
+
+    // ── NAV state ──
+    nav.classList.toggle('scrolled', scrollY > 50);
+    nav.classList.toggle('dark-bg', scrollY < heroSection.offsetHeight - 80);
+
+    // ── HERO parallax ──
+    const heroRect  = heroSection.getBoundingClientRect();
+    const heroH     = heroSection.offsetHeight;
+    // Only run while hero is in view
+    if (heroRect.bottom > 0) {
+      const heroProgress = scrollY / heroH; // 0→1 as you scroll through hero
+
+      // Background drifts up slowest (20% of scroll speed)
+      heroBg.style.transform = `translateY(${scrollY * 0.2}px)`;
+
+      // Glow drifts at 35%
+      heroGlow.style.transform = `translate(-50%, calc(-50% + ${scrollY * 0.35}px))`;
+
+      // Orbits at different rates
+      heroOrbit1.style.transform = `translate(-50%, calc(-50% + ${scrollY * 0.28}px))`;
+      heroOrbit2.style.transform = `translate(-50%, calc(-50% + ${scrollY * 0.42}px))`;
+
+      // Content fades out + drifts up faster (60% speed)
+      const contentY   = scrollY * 0.6;
+      const contentOpa = clamp(1 - heroProgress * 1.8, 0, 1);
+      heroContent.style.transform = `translateY(${contentY}px)`;
+      heroContent.style.opacity   = contentOpa;
+
+      // Particles drift at 50%
+      const pEl = document.getElementById('particles');
+      if (pEl) pEl.style.transform = `translateY(${scrollY * 0.5}px)`;
+    }
+
+    // ── ABOUT section parallax ──
+    const aboutP = getProgress(aboutSection);
+    if (aboutP > 0 && aboutP < 1) {
+      const offset = (aboutP - 0.5) * 80; // -40px → +40px travel
+      aboutBg.style.transform   = `translateY(${offset * 0.4}px)`;
+      aboutOrb1.style.transform = `translateY(${-offset * 0.6}px)`;
+      aboutOrb2.style.transform = `translateY(${offset * 0.8}px)`;
+    }
+
+    // ── ORDER section parallax ──
+    const orderP = getProgress(orderSection);
+    if (orderP > 0 && orderP < 1) {
+      const offset = (orderP - 0.5) * 80;
+      orderBg.style.transform   = `translateY(${offset * 0.4}px)`;
+      orderOrb1.style.transform = `translateY(${-offset * 0.7}px)`;
+      orderOrb2.style.transform = `translateY(${offset * 0.9}px)`;
+    }
+
+    ticking = false;
+  }
+
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      requestAnimationFrame(onScroll);
+      ticking = true;
+    }
+  }, { passive: true });
+
+  // Run once on load
+  onScroll();
+</script>
+</body>
+</html>
